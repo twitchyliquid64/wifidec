@@ -85,7 +85,8 @@ class WifiFrame(object):
 		if self.isBeacon():
 			print "Beacon SSID: ", self.ssid()
 		if self.isProbeReq():
-			print "Detected probe for SSID: ", self.ssid()
+			print self.data
+			raise Exception
 
 while True:
 	pkt = rawSocket.recvfrom(2548)[0] #each recv from call gets a most one packet
