@@ -85,8 +85,6 @@ class WifiFrame(object):
 		elif self.isProbeResp():
 			print "Probe Response SSID: ", self.ssid()
 
-		print "Type: ", self.type
-		print "Subtype: ", self.subtype
 		print "Source: ", self.src.encode('hex')
 		print "Destination: ", self.dest.encode('hex')
 
