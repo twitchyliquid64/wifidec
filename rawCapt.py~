@@ -2,6 +2,7 @@
 import socket 
 import time
 import struct
+
 rawSocket = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(0x0003))
 rawSocket.bind(("mon0", 0x0003))
 ap_list = set()
@@ -51,7 +52,7 @@ class WifiFrame(object):
 
 	def ssid(self):
 		"""Only call this after deepDecode() has been invoked."""
-		if self.isBeacon():
+		if self.isBeacon() or self.isProbeResp() or self.isProbeReq():
 			for tag in self.tags:
 				if tag[0] == 0:#0 is the type for an SSID
 					return str(tag[1])
@@ -71,23 +72,25 @@ class WifiFrame(object):
 	def isProbeReq(self):
 		return (self.subtype == 4) and (self.type == 0)
 		
+	def isProbeResp(self):
+		return (self.subtype == 5) and (self.type == 0)
+		
 
 	def display(self):
-		print "Version: ", self.version
-		print "Type: ", self.type
-		print "Subtype: ", self.subtype
-		print "To DS: ", self.toDS
-		print "From DS: ", self.fromDS
-		print "More fragments: ", self.moreFrag
-		print "Retry: ", self.retry
-		print "Source: ", self.src.encode('hex')
-		print "Destination: ", self.dest.encode('hex')
+		print ""
 		if self.isBeacon():
 			print "Beacon SSID: ", self.ssid()
-		if self.isProbeReq():
-			print self.data
-			raise Exception
+		elif self.isProbeReq():
+			print "Probe Request SSID: ", self.ssid()
+		elif self.isProbeResp():
+			print "Probe Response SSID: ", self.ssid()
 
+		print "Type: ", self.type
+		print "Subtype: ", self.subtype
+		print "Source: ", self.src.encode('hex')
+		print "Destination: ", self.dest.encode('hex')
+
+		
 while True:
 	pkt = rawSocket.recvfrom(2548)[0] #each recv from call gets a most one packet
 	version, length, fields, frame = parseRadioTapHeader(pkt)
