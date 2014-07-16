@@ -3,9 +3,11 @@ import socket
 import time
 import struct
 
-rawSocket = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(0x0003))
-rawSocket.bind(("mon0", 0x0003))
-ap_list = set()
+
+def createPacketSink(interface="mon0"):
+	rawSocket = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(0x0003))
+	rawSocket.bind((interface, 0x0003))
+	return rawSocket
 
 def parseRadioTapHeader(data):
 	version = struct.unpack('B', data[0])[0]
@@ -84,11 +86,15 @@ class WifiFrame(object):
 			print "Probe Request SSID: ", self.ssid()
 		elif self.isProbeResp():
 			print "Probe Response SSID: ", self.ssid()
+		else:
+			print "Type: ", self.type
+			print "Subtype: ", self.subtype
 
 		print "Source: ", self.src.encode('hex')
 		print "Destination: ", self.dest.encode('hex')
 
-		
+
+rawSocket = createPacketSink()
 while True:
 	pkt = rawSocket.recvfrom(2548)[0] #each recv from call gets a most one packet
 	version, length, fields, frame = parseRadioTapHeader(pkt)
