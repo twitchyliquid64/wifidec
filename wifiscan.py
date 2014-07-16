@@ -35,6 +35,9 @@ def get_encryption(cell):
                 wpa=match(matching,"WPA Version ")
                 if wpa!=None:
                     enc="WPA v."+wpa
+		wpa=match(matching,"IEEE 802.11i/WPA2")
+		if wpa!=None:
+		    enc="WPA v.2"
         if enc=="":
             enc="WEP"
     return enc
