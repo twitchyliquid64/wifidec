@@ -102,5 +102,6 @@ if __name__ == "__main__":
 		version, length, fields, frame = parseRadioTapHeader(pkt)
 		obj = WifiFrame(frame, True)
 		#if obj.isBeacon():
-		obj.display()
+		if not obj.isBeacon():
+			obj.display()
 
