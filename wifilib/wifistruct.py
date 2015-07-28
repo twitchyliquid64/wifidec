@@ -3,18 +3,14 @@ import socket
 import time
 import struct
 
-
-def createPacketSink(interface="mon0"):
-	rawSocket = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(0x0003))
-	rawSocket.bind((interface, 0x0003))
-	return rawSocket
-
-def parseRadioTapHeader(data):
-	version = struct.unpack('B', data[0])[0]
-	#data[1] is unused
-	length = struct.unpack('H', data[2:4])[0]
-	fieldsPresent = struct.unpack('I', data[4:8])[0]#its a bitset
-	return version, length, fieldsPresent, data[length:]
+class RadiotapFrame(object):
+	def __init__(self, data):
+		self.raw = data
+		self.version = struct.unpack('B', data[0])[0]
+	        #data[1] is unused
+        	self.length = struct.unpack('H', data[2:4])[0]
+	        self.fieldsPresent = struct.unpack('I', data[4:8])[0]#its a bitset
+	        self.payload = data[self.length:]
 
 
 #Frame types		: 0 = management, 1 = control, 2 = data, 3 = reserved.
@@ -46,10 +42,7 @@ class WifiFrame(object):
 
 	def deepDecode(self):
 		if self.type == 0:
-			try:
-				self._decodeMngmt()
-			except Exception, e:
-				print "Exception decoding management frame: " + str(e)
+			self._decodeMngmt()
 
 
 	def ssid(self):
@@ -64,10 +57,10 @@ class WifiFrame(object):
 		i = 0
 		while i < len(self.data):
 			tpe = ord(self.data[i])
-			length = ord(self.data[i+1])
-			data = self.data[i+2:i+2+length]
-			i += 2+length
-			self.tags.append((tpe,data,length))
+                        length = ord(self.data[i+1])
+                        data = self.data[i+2:i+2+length]
+                        i += 2+length
+			self.tags.append((tpe,data))
 			
 	def isBeacon(self):
 		return (self.subtype == 8) and (self.type == 0)
@@ -78,9 +71,8 @@ class WifiFrame(object):
 	def isProbeResp(self):
 		return (self.subtype == 5) and (self.type == 0)
 
-	def isManagement(self):
-                return self.type == 0
-		
+        def isManagement(self):
+                return self.type == 0		
 
 	def display(self):
 		print ""
@@ -96,19 +88,28 @@ class WifiFrame(object):
 
 		print "Source: ", self.src.encode('hex')
 		print "Destination: ", self.dest.encode('hex')
-		if self.isManagement():
-			for tag in self.tags:
-				print tag
+                if self.isManagement():
+                        for tag in self.tags:
+                                print tag
 
+
+
+def createPacketSink(interface="mon0"):
+        rawSocket = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(0x0003))
+        rawSocket.bind((interface, 0x0003))
+        return rawSocket
+
+
+def main():
+        rawSocket = createPacketSink()
+        while True:
+                pkt = rawSocket.recvfrom(2548)[0] #each recv from call gets a most one packet
+		radioFrame = RadiotapFrame(pkt)
+                obj = WifiFrame(radioFrame.payload, True)
+                #if obj.isBeacon():
+                if not obj.isBeacon():
+                        obj.display()
 
 
 if __name__ == "__main__":
-	rawSocket = createPacketSink()
-	while True:
-		pkt = rawSocket.recvfrom(2548)[0] #each recv from call gets a most one packet
-		version, length, fields, frame = parseRadioTapHeader(pkt)
-		obj = WifiFrame(frame, True)
-		#if obj.isBeacon():
-		if not obj.isBeacon():
-			obj.display()
-
+	main()
