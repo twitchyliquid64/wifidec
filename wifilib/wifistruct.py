@@ -88,6 +88,7 @@ class WifiFrame(object):
 
 		print "Source: ", self.src.encode('hex')
 		print "Destination: ", self.dest.encode('hex')
+		print "Payload: ", len(self.data)
                 if self.isManagement():
                         for tag in self.tags:
                                 print tag
@@ -107,7 +108,7 @@ def main():
 		radioFrame = RadiotapFrame(pkt)
                 obj = WifiFrame(radioFrame.payload, True)
                 #if obj.isBeacon():
-                if not obj.isBeacon():
+                if not obj.isManagement():
                         obj.display()
 
 
