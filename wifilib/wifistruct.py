@@ -2,15 +2,39 @@
 import socket 
 import time
 import struct
+import radiotap
 
 class RadiotapFrame(object):
 	def __init__(self, data):
 		self.raw = data
-		self.version = struct.unpack('B', data[0])[0]
-	        #data[1] is unused
         	self.length = struct.unpack('H', data[2:4])[0]
-	        self.fieldsPresent = struct.unpack('I', data[4:8])[0]#its a bitset
 	        self.payload = data[self.length:]
+		self.fields = radiotap.parse(data)
+
+	def getChannel(self):
+		if radiotap.RTAP_CHANNEL in self.fields:
+			return self.fields[radiotap.RTAP_CHANNEL] & 0xFFFF # Fixes bug in representation
+		return None
+
+	def getSignalStrength(self):
+		if radiotap.RTAP_DBM_ANTSIGNAL in self.fields:
+			return self.fields[radiotap.RTAP_DBM_ANTSIGNAL]
+		return None
+
+	def getAntenna(self):
+		if radiotap.RTAP_ANTENNA in self.fields:
+			return self.fields[radiotap.RTAP_ANTENNA]
+		return None
+
+	def __str__(self):
+		outstr = "RadioTap Frame: (payload = " + str(len(self.payload)) + " fields = " + str(len(self.fields)) + ")"
+		if self.getChannel():
+			outstr += " -- Channel: " + str(self.getChannel())
+		if self.getSignalStrength():
+			outstr += " -- DBM: " + str(self.getSignalStrength())
+                if self.getAntenna():
+                        outstr += " -- Ant: " + str(self.getAntenna())
+		return outstr
 
 
 #Frame types		: 0 = management, 1 = control, 2 = data, 3 = reserved.
@@ -106,6 +130,7 @@ def main():
         while True:
                 pkt = rawSocket.recvfrom(2548)[0] #each recv from call gets a most one packet
 		radioFrame = RadiotapFrame(pkt)
+		print radioFrame
                 obj = WifiFrame(radioFrame.payload, True)
                 #if obj.isBeacon():
                 if not obj.isManagement():
