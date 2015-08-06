@@ -50,31 +50,39 @@ class WifiFrame(object):
 		self.toDS		= bool(ord(data[1]) & 1)
 		self.fromDS		= bool((ord(data[1]) >> 1) & 1)
 		self.moreFrag		= bool((ord(data[1]) >> 2) & 1)
-		self.retry		= bool((ord(data[1]) >> 3) & 1)
+		self.retryFlag		= bool((ord(data[1]) >> 3) & 1)
+		self.powerMngtFlag	= bool((ord(data[1]) >> 4) & 1)
+		self.moreDataFlag	= bool((ord(data[1]) >> 5) & 1)
+		self.WEPFlag		= bool((ord(data[1]) >> 6) & 1)
 		self.durationID		= data[2:4]
-		self.dest		= data[4:10]
-		self.src		= data[10:16] #FIXME: Not present for control frames
+		self.addr1		= data[4:10]
+		self.addr2		= data[10:16] #FIXME: Not present for control frames
 		self.addr3		= data[16:24] #FIXME: Not present for control frames
 		self.seqControl		= data[24:26] #FIXME: Not present for control frames
 		self.addr4		= data[26:32] #FIXME: Not always present depending on type
 		self.data		= data[36:]
+		self.fcs 		= ''
+		if len(self.data) > 4:
+			self.fcs	= self.data[-4:]
+			self.data	= self.data[:-4]
 		self.tags		= []#management frame information elements - only used on mngmt frames obviously
-		#skipping pwr mngment, more data, wep, order
 
 		if deepdecode:
 			self.deepDecode()
 
 	def deepDecode(self):
-		if self.type == 0:
+		if self.isManagement():
 			self._decodeMngmt()
 
 
 	def ssid(self):
-		"""Only call this after deepDecode() has been invoked."""
+		"""Only call this after deepDecode() has been invoked.
+		Returns the SSID string contained in the packet, if any."""
 		if self.isBeacon() or self.isProbeResp() or self.isProbeReq():
 			for tag in self.tags:
 				if tag[0] == 0:#0 is the type for an SSID
 					return str(tag[1])
+		return None
 
 	def _decodeMngmt(self):
 		"""Called internally to decode the data section of management frames."""
@@ -86,6 +94,8 @@ class WifiFrame(object):
                         i += 2+length
 			self.tags.append((tpe,data))
 			
+	def isData(self):
+		return (self.type == 2)
 	def isBeacon(self):
 		return (self.subtype == 8) and (self.type == 0)
 
@@ -97,6 +107,48 @@ class WifiFrame(object):
 
         def isManagement(self):
                 return self.type == 0		
+
+	def src(self):
+		"""Returns the source MAC of the packet."""
+                if self.toDS == False and self.fromDS == False:
+                        return self.addr2
+                if self.toDS == False and self.fromDS == True:
+                        return self.addr3
+		if self.toDS == True and self.fromDS == False:
+			return self.addr2
+		if self.toDS == True and self.fromDS == True:
+                        return self.addr4
+
+	def dest(self):
+		"""Returns the destination MAC of the packet."""
+                if self.toDS == False and self.fromDS == False:
+                        return self.addr1
+                if self.toDS == False and self.fromDS == True:
+                        return self.addr1
+		if self.toDS == True and self.fromDS == False:
+			return self.addr3
+		if self.toDS == True and self.fromDS == True:
+                        return self.addr3
+			
+	def bssid(self):
+		"""Returns the BSSID set in the packet."""
+                if self.toDS == False and self.fromDS == False:
+                        return self.addr3
+                if self.toDS == False and self.fromDS == True:
+                        return self.addr2
+		if self.toDS == True and self.fromDS == False:
+			return self.addr1
+		if self.toDS == True and self.fromDS == True:
+                        return 0
+
+	def repeaterAddresses(self):
+		"""For frames which are repeated, returns a tuple
+		containing the transmitter and reciever station addresses"""
+		if self.toDS == True and self.fromDS == True:
+			return (self.addr2, self.addr1)
+		return None
+
+
 
 	def display(self):
 		print ""
@@ -110,8 +162,8 @@ class WifiFrame(object):
 			print "Type: ", self.type
 			print "Subtype: ", self.subtype
 
-		print "Source: ", self.src.encode('hex')
-		print "Destination: ", self.dest.encode('hex')
+		print "Source: ", self.src().encode('hex')
+		print "Destination: ", self.dest().encode('hex')
 		print "Payload: ", len(self.data)
                 if self.isManagement():
                         for tag in self.tags:
@@ -130,10 +182,10 @@ def main():
         while True:
                 pkt = rawSocket.recvfrom(2548)[0] #each recv from call gets a most one packet
 		radioFrame = RadiotapFrame(pkt)
-		print radioFrame
+		#print radioFrame
                 obj = WifiFrame(radioFrame.payload, True)
                 #if obj.isBeacon():
-                if not obj.isManagement():
+                if obj.isBeacon():
                         obj.display()
 
 
