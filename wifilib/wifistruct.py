@@ -3,6 +3,7 @@ import socket
 import time
 import struct
 import radiotap
+import flags
 
 class RadiotapFrame(object):
 	def __init__(self, data):
@@ -87,6 +88,7 @@ class WifiFrame(object):
 	def _decodeMngmt(self):
 		"""Called internally to decode the data section of management frames."""
 		i = 0
+		print self.type, self.subtype
 		while i < len(self.data):
 			tpe = ord(self.data[i])
                         length = ord(self.data[i+1])
@@ -148,6 +150,13 @@ class WifiFrame(object):
 			return (self.addr2, self.addr1)
 		return None
 
+	def getType(self):
+		#print bin(self.type)
+		if self.subtype in flags.WIFI_SUBTYPE[self.type]:
+			sub = flags.WIFI_SUBTYPE[self.type][self.subtype]
+		else:
+			sub = str(self.subtype)
+		return flags.WIFI_TYPE[self.type], sub
 
 
 	def display(self):
@@ -159,15 +168,14 @@ class WifiFrame(object):
 		elif self.isProbeResp():
 			print "Probe Response SSID: ", self.ssid()
 		else:
-			print "Type: ", self.type
-			print "Subtype: ", self.subtype
+			print "Type: ", '-'.join(self.getType())
 
 		print "Source: ", self.src().encode('hex')
 		print "Destination: ", self.dest().encode('hex')
 		print "Payload: ", len(self.data)
-                if self.isManagement():
-                        for tag in self.tags:
-                                print tag
+                #if self.isManagement():
+                #        for tag in self.tags:
+                #                print tag
 
 
 
@@ -185,7 +193,7 @@ def main():
 		#print radioFrame
                 obj = WifiFrame(radioFrame.payload, True)
                 #if obj.isBeacon():
-                if obj.isBeacon():
+                if not obj.isBeacon():
                         obj.display()
 
 
